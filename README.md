@@ -1,7 +1,6 @@
 # Bazaarvoice MCP Server (Starter)
-=====================================================
 
-This project is a starter MCP server for connecting VS Code to Bazaarvoice.
+Hello! This project is a starter MCP server for connecting VS Code to Bazaarvoice.
 
 Current capabilities:
 - `bv_list_instances`: list configured BV instances from local config
