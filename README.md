@@ -1,4 +1,5 @@
 # Bazaarvoice MCP Server (Starter)
+=====================================================
 
 This project is a starter MCP server for connecting VS Code to Bazaarvoice.
 
