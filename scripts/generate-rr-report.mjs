@@ -1,10 +1,23 @@
 import "dotenv/config";
 
+// Usage:  node scripts/generate-rr-report.mjs [instanceName]
+// If no instance name is passed, the first configured instance is used.
+
 const instances = JSON.parse(process.env.BV_INSTANCES_JSON ?? "[]");
-const instance = instances.find((item) => item.name === "pampers-en-us") ?? instances[0];
+if (instances.length === 0) {
+  throw new Error("No instances found in BV_INSTANCES_JSON");
+}
+
+const targetName = process.argv[2]?.trim();
+const instance   = targetName
+  ? instances.find((item) => item.name === targetName)
+  : instances[0];
 
 if (!instance) {
-  throw new Error("No instance found in BV_INSTANCES_JSON");
+  const names = instances.map((i) => i.name).join(", ");
+  throw new Error(
+    `Instance "${targetName}" not found in BV_INSTANCES_JSON. Available: ${names}`,
+  );
 }
 
 const timeoutMs = Number(process.env.BV_TIMEOUT_MS ?? "12000");
