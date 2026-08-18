@@ -6,6 +6,10 @@ export type BvInstance = {
   passkey: string;
   apiversion?: string;
   owner?: string;
+  /** Human-readable name shown in reports, e.g. "United States (EN)" */
+  displayName?: string;
+  /** Explicit region for UPC/EAN rules and sort order */
+  region?: "na" | "eu" | "other";
 };
 
 // ─── Shared envelope ─────────────────────────────────────────────────────────
