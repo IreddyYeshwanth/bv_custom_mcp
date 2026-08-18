@@ -72,9 +72,39 @@ const countByOwnerSchema = z.object({
   owner: z.string().min(1),
 });
 
-const generateReportSchema = z.object({
-  instanceName: z.string().min(1).default("pampers-en-us").optional(),
-});
+/**
+ * Resolves the list of instance names from a tool call.
+ * Accepts either a single `instanceName` string or an `instanceNames` array.
+ * Falls back to all configured instances when neither is provided.
+ */
+function resolveInstanceNamesFromArgs(
+  args: Record<string, unknown>,
+): string[] {
+  if (Array.isArray(args.instanceNames) && (args.instanceNames as unknown[]).length > 0) {
+    return (args.instanceNames as unknown[]).map(String);
+  }
+  if (typeof args.instanceName === "string" && args.instanceName.trim()) {
+    return [args.instanceName.trim()];
+  }
+  // No instance specified — run against all configured instances.
+  return getConfiguredInstances().map((i) => i.name);
+}
+
+const instanceNamesInputSchema = {
+  type: "object" as const,
+  properties: {
+    instanceName: {
+      type: "string",
+      description: "Single configured instance name (e.g. pampers-en-us). Omit to run against all instances.",
+    },
+    instanceNames: {
+      type: "array",
+      items: { type: "string" },
+      description: "Array of configured instance names to combine into one report.",
+    },
+  },
+  additionalProperties: false,
+} as const;
 
 // ─── Tool registry ────────────────────────────────────────────────────────────
 
@@ -216,38 +246,25 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "bv_generate_rr_key_metrics_report",
       description:
-        "Generate an Excel R&R Key Metrics report (same structure as Bazaarvoice_Pampers_RR_Key_Metrics.xlsx) for a Bazaarvoice instance.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          instanceName: { type: "string", description: "Configured instance name. Defaults to pampers-en-us." },
-        },
-        additionalProperties: false,
-      },
+        "Generate an Excel R&R Key Metrics report for one or more Bazaarvoice instances. " +
+        "Each instance becomes its own sheet. Pass instanceName for a single instance, " +
+        "instanceNames array to combine multiple, or omit to include all configured instances.",
+      inputSchema: instanceNamesInputSchema,
     },
     {
       name: "bv_generate_sample_report",
       description:
-        "Generate an Excel sample report in the compact R&R workbook format (same structure as pampers-en-us_R&R_key_metrics_*.xlsx).",
-      inputSchema: {
-        type: "object",
-        properties: {
-          instanceName: { type: "string", description: "Configured instance name. Defaults to pampers-en-us." },
-        },
-        additionalProperties: false,
-      },
+        "Generate an Excel sample R&R report (Summary + Rating Distribution) for one or more instances. " +
+        "Pass instanceName, instanceNames array, or omit to include all configured instances.",
+      inputSchema: instanceNamesInputSchema,
     },
     {
       name: "bv_generate_instance_audit_report",
       description:
-        "Generate an instance-level audit Excel workbook containing audit dashboard, catalog analysis, suggestions summary, pivot data, and product data.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          instanceName: { type: "string", description: "Configured instance name. Defaults to pampers-en-us." },
-        },
-        additionalProperties: false,
-      },
+        "Generate a comprehensive catalog audit Excel workbook for one or more Bazaarvoice instances. " +
+        "Produces a single 'Audit Report' sheet (9 sections) plus one product-data sheet per instance. " +
+        "Pass instanceName, instanceNames array, or omit to audit all configured instances.",
+      inputSchema: instanceNamesInputSchema,
     },
   ],
 }));
@@ -356,18 +373,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "bv_generate_rr_key_metrics_report": {
-        const { instanceName } = generateReportSchema.parse(args);
-        return ok(await generateRrKeyMetricsTemplateReport(instanceName));
+        const names = resolveInstanceNamesFromArgs(args);
+        return ok(await generateRrKeyMetricsTemplateReport(names));
       }
 
       case "bv_generate_sample_report": {
-        const { instanceName } = generateReportSchema.parse(args);
-        return ok(await generateSampleReportExcel(instanceName));
+        // Sample report runs per-instance and returns an array of results
+        const names   = resolveInstanceNamesFromArgs(args);
+        const results = await Promise.all(names.map((n) => generateSampleReportExcel(n)));
+        return ok(results.length === 1 ? results[0] : results);
       }
 
       case "bv_generate_instance_audit_report": {
-        const { instanceName } = generateReportSchema.parse(args);
-        return ok(await generateInstanceAuditReport({ instanceName }));
+        const names = resolveInstanceNamesFromArgs(args);
+        return ok(await generateInstanceAuditReport({ instanceNames: names }));
       }
 
       default:
