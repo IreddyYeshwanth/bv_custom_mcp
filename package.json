@@ -4,15 +4,15 @@
   "private": true,
   "description": "Custom MCP server starter for Bazaarvoice",
   "type": "module",
-  "main": "dist/index.js",
+  "main": "dist/server/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "tsx src/index.ts",
-    "report": "tsx src/report-cli.ts",
-    "report:audit": "tsx src/report-cli.ts",
-    "report:rr:full": "tsx src/report-cli.ts",
-    "report:rr:sample": "tsx src/report-cli.ts",
-    "start": "node dist/index.js"
+    "dev": "tsx src/server/index.ts",
+    "report": "tsx src/cli/report.ts",
+    "report:audit": "tsx src/cli/report.ts",
+    "report:rr:full": "tsx src/cli/report.ts",
+    "report:rr:sample": "tsx src/cli/report.ts",
+    "start": "node dist/server/index.js"
   },
   "engines": {
     "node": ">=18"

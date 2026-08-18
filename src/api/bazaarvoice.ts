@@ -7,7 +7,7 @@ import type {
   Question,
   StatisticsResult,
   Review,
-} from "./types.js";
+} from "../types/index.js";
 
 // ─── Instance config ─────────────────────────────────────────────────────────
 
@@ -18,6 +18,8 @@ const instancesSchema = z.array(
     passkey: z.string().min(1),
     apiversion: z.string().default("5.4").optional(),
     owner: z.string().optional(),
+    displayName: z.string().optional(),
+    region: z.enum(["na", "eu", "other"]).optional(),
   }),
 );
 

@@ -1,8 +1,8 @@
 import "dotenv/config";
-import { getConfiguredInstances } from "./bazaarvoice.js";
-import { generateRrKeyMetricsTemplateReport } from "./rr-key-metrics-report.js";
-import { generateSampleReportExcel } from "./rr-report.js";
-import { generateInstanceAuditReport } from "./instance-audit-report.js";
+import { getConfiguredInstances } from "../api/bazaarvoice.js";
+import { generateRrKeyMetricsTemplateReport } from "../reports/rr-key-metrics.js";
+import { generateSampleReportExcel } from "../reports/rr-sample.js";
+import { generateInstanceAuditReport } from "../reports/audit.js";
 
 // Usage examples:
 //   npm run report -- rr-full   pampers-en-us

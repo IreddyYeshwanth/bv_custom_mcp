@@ -12,10 +12,10 @@ import {
   listProducts,
   listQuestions,
   listReviews,
-} from "./bazaarvoice.js";
-import { generateRrKeyMetricsTemplateReport } from "./rr-key-metrics-report.js";
-import { generateSampleReportExcel } from "./rr-report.js";
-import { generateInstanceAuditReport } from "./instance-audit-report.js";
+} from "../api/bazaarvoice.js";
+import { generateRrKeyMetricsTemplateReport } from "../reports/rr-key-metrics.js";
+import { generateSampleReportExcel } from "../reports/rr-sample.js";
+import { generateInstanceAuditReport } from "../reports/audit.js";
 
 // ─── Server definition ─────────────────────────────────────────────────────────
 

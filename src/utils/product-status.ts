@@ -1,4 +1,4 @@
-import type { Product } from "./types.js";
+import type { Product } from "../types/index.js";
 
 export type ProductStatus = "Active" | "Inactive" | "Disabled";
 
