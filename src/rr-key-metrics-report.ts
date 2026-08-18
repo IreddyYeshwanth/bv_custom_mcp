@@ -5,13 +5,11 @@ import { listProducts } from "./bazaarvoice.js";
 import { resolveProductStatus } from "./product-status.js";
 import type { Product } from "./types.js";
 
-const DEFAULT_INSTANCE_NAME = "pampers-en-us";
 const DEFAULT_REPORTS_DIR = path.resolve(process.cwd(), "reports");
 
 type RrKeyMetricsTemplateReport = {
-  instanceName: string;
+  instanceNames: string[];
   outputPath: string;
-  sheetName: string;
   totalProducts: number;
   generatedAt: string;
 };
@@ -116,30 +114,35 @@ function buildSheetRows(instanceName: string, generatedAt: string, products: Pro
 }
 
 export async function generateRrKeyMetricsTemplateReport(
-  instanceName = DEFAULT_INSTANCE_NAME,
+  instanceInput: string | string[],
   outputDir = DEFAULT_REPORTS_DIR,
 ): Promise<RrKeyMetricsTemplateReport> {
-  const generatedAt = new Date().toISOString();
-  const products = await listAllProducts(instanceName);
-  const rows = buildSheetRows(instanceName, generatedAt, products);
+  const instanceNames = Array.isArray(instanceInput) ? [...new Set(instanceInput)] : [instanceInput];
+  const generatedAt   = new Date().toISOString();
 
   const workbook = xlsx.utils.book_new();
-  const sheet = xlsx.utils.aoa_to_sheet(rows);
+  let totalProducts = 0;
 
-  sheet["!cols"] = [15, 12, 15, 12, 30, 50, 30, 30, 15, 15, 15, 20, 18, 18, 18].map((wch) => ({ wch }));
-
-  const sheetName = instanceName.replace(/[^a-zA-Z0-9-_]/g, "_").slice(0, 31) || "R&R_Key_Metrics";
-  xlsx.utils.book_append_sheet(workbook, sheet, sheetName);
+  for (const instanceName of instanceNames) {
+    const products = await listAllProducts(instanceName);
+    totalProducts += products.length;
+    const rows = buildSheetRows(instanceName, generatedAt, products);
+    const sheet = xlsx.utils.aoa_to_sheet(rows);
+    sheet["!cols"] = [15, 12, 15, 12, 30, 50, 30, 30, 15, 15, 15, 20, 18, 18, 18].map((wch) => ({ wch }));
+    const sheetName = instanceName.replace(/[^a-zA-Z0-9-_ ]/g, "_").slice(0, 31) || "R&R_Key_Metrics";
+    xlsx.utils.book_append_sheet(workbook, sheet, sheetName);
+  }
 
   await mkdir(outputDir, { recursive: true });
-  const outputPath = path.join(outputDir, `${instanceName}_R&R_key_metrics_${formatTimestampForFilename(new Date(generatedAt))}.xlsx`);
+
+  const label      = instanceNames.length === 1 ? instanceNames[0] : `multi-instance_${instanceNames.length}instances`;
+  const outputPath = path.join(outputDir, `${label}_R&R_key_metrics_${formatTimestampForFilename(new Date(generatedAt))}.xlsx`);
   xlsx.writeFile(workbook, outputPath);
 
   return {
-    instanceName,
+    instanceNames,
     outputPath,
-    sheetName,
-    totalProducts: products.length,
+    totalProducts,
     generatedAt,
   };
 }
