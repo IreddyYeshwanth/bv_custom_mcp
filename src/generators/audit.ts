@@ -3,6 +3,7 @@ import path from "node:path";
 import xlsx from "xlsx";
 import { findInstanceByName, listProducts } from "../api/bazaarvoice.js";
 import { isProductActive, resolveProductStatus } from "../utils/product-status.js";
+import { logSuccess, logWarn } from "../utils/logger.js";
 import type { BvInstance, Product } from "../types/index.js";
 
 const DEFAULT_REPORTS_DIR = path.resolve(process.cwd(), "reports");
@@ -926,8 +927,15 @@ export async function generateInstanceAuditReport(
     const result = settled[i];
     if (result.status === "fulfilled") {
       allData.push(result.value);
+      await logSuccess(`audit: instance loaded`, {
+        instanceName: names[i],
+        totalProducts: result.value.summary.totalProducts,
+      });
     } else {
-      console.error(`[audit] Skipping instance "${names[i]}": ${result.reason?.message ?? result.reason}`);
+      await logWarn(`audit: skipping instance "${names[i]}"`, {
+        instanceName: names[i],
+        error: result.reason?.message ?? String(result.reason),
+      });
     }
   }
 

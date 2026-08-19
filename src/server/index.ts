@@ -13,9 +13,9 @@ import {
   listQuestions,
   listReviews,
 } from "../api/bazaarvoice.js";
-import { generateRrKeyMetricsTemplateReport } from "../reports/rr-key-metrics.js";
-import { generateSampleReportExcel } from "../reports/rr-sample.js";
-import { generateInstanceAuditReport } from "../reports/audit.js";
+import { generateRrKeyMetricsTemplateReport } from "../generators/rr-key-metrics.js";
+import { generateSampleReportExcel } from "../generators/rr-sample.js";
+import { generateInstanceAuditReport } from "../generators/audit.js";
 
 // ─── Server definition ─────────────────────────────────────────────────────────
 

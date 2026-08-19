@@ -1,8 +1,9 @@
 import "dotenv/config";
 import { getConfiguredInstances } from "../api/bazaarvoice.js";
-import { generateRrKeyMetricsTemplateReport } from "../reports/rr-key-metrics.js";
-import { generateSampleReportExcel } from "../reports/rr-sample.js";
-import { generateInstanceAuditReport } from "../reports/audit.js";
+import { generateRrKeyMetricsTemplateReport } from "../generators/rr-key-metrics.js";
+import { generateSampleReportExcel } from "../generators/rr-sample.js";
+import { generateInstanceAuditReport } from "../generators/audit.js";
+import { logError, logInfo, logSuccess } from "../utils/logger.js";
 
 // Usage examples:
 //   npm run report -- rr-full   pampers-en-us
@@ -50,18 +51,31 @@ function detectInstanceNames(): string[] {
 const mode          = detectMode();
 const instanceNames = detectInstanceNames();
 
-console.error(`[report-cli] mode=${mode} instances=[${instanceNames.join(", ")}]`);
+await logInfo(`report-cli started`, { mode, instances: instanceNames });
 
 let report;
 
-if (mode === "audit") {
-  report = await generateInstanceAuditReport({ instanceNames });
-} else if (mode === "rr-sample") {
-  // Sample report is per-instance; collect all results
-  const results = await Promise.all(instanceNames.map((n) => generateSampleReportExcel(n)));
-  report = results.length === 1 ? results[0] : results;
-} else {
-  report = await generateRrKeyMetricsTemplateReport(instanceNames);
-}
+try {
+  if (mode === "audit") {
+    report = await generateInstanceAuditReport({ instanceNames });
+  } else if (mode === "rr-sample") {
+    // Sample report is per-instance; collect all results
+    const results = await Promise.all(instanceNames.map((n) => generateSampleReportExcel(n)));
+    report = results.length === 1 ? results[0] : results;
+  } else {
+    report = await generateRrKeyMetricsTemplateReport(instanceNames);
+  }
 
-console.log(JSON.stringify(report, null, 2));
+  await logSuccess(`report-cli completed`, {
+    mode,
+    instances: instanceNames,
+    outputPath: Array.isArray(report) ? report.map((r) => r.outputPath) : (report as any).outputPath,
+    totalProducts: Array.isArray(report) ? undefined : (report as any).totalProducts,
+    generatedAt: Array.isArray(report) ? undefined : (report as any).generatedAt,
+  });
+
+  console.log(JSON.stringify(report, null, 2));
+} catch (err) {
+  await logError(`report-cli failed`, err, { mode, instances: instanceNames });
+  process.exit(1);
+}
