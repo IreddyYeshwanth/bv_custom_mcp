@@ -41,8 +41,19 @@ async function bvFetch(endpoint, params) {
       headers: { Accept: "application/json" },
     });
 
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Bazaarvoice API returned ${response.status}: ${body}`);
+    }
+
+    const json = await response.json();
+
+    if (json.HasErrors && json.Errors?.length) {
+      const messages = json.Errors.map((e) => `[${e.Code}] ${e.Message}`).join("; ");
+      throw new Error(`Bazaarvoice API error: ${messages}`);
+    }
+
+    return json;
   } finally {
     clearTimeout(timer);
   }
@@ -106,7 +117,7 @@ console.log("\n⭐ RATING DISTRIBUTION");
 console.log("───────────────────────────────────────────────────────────────────────────");
 
 // Get statistics for a sample product to show rating breakdown
-const statsResult = await bvFetch("/data/statistics.json", { Limit: "100", Offset: "0" });
+const statsResult = await bvFetch("/data/statistics.json", { Stats: "Reviews,NativeReviews", Limit: "100", Offset: "0" });
 if (statsResult.Results && statsResult.Results.length > 0) {
   const firstStats = statsResult.Results[0]?.ProductStatistics?.ReviewStatistics;
   if (firstStats?.RatingsDistribution) {
