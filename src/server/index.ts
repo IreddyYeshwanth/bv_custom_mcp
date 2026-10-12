@@ -379,8 +379,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "bv_generate_sample_report": {
         // Sample report runs per-instance and returns an array of results
-        const names   = resolveInstanceNamesFromArgs(args);
-        const results = await Promise.all(names.map((n) => generateSampleReportExcel(n)));
+        const names = resolveInstanceNamesFromArgs(args);
+        const settled = await Promise.allSettled(names.map((n) => generateSampleReportExcel(n)));
+        const results: Awaited<ReturnType<typeof generateSampleReportExcel>>[] = [];
+
+        for (let index = 0; index < settled.length; index += 1) {
+          const item = settled[index];
+          if (item.status === "fulfilled") {
+            results.push(item.value);
+          }
+        }
+
+        if (results.length === 0) {
+          throw new Error(`No valid Bazaarvoice instances were available for sample RR report generation. Tried: ${names.join(", ") || "(none)"}`);
+        }
+
         return ok(results.length === 1 ? results[0] : results);
       }
 
