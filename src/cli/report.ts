@@ -3,7 +3,7 @@ import { getConfiguredInstances } from "../api/bazaarvoice.js";
 import { generateRrKeyMetricsTemplateReport } from "../generators/rr-key-metrics.js";
 import { generateSampleReportExcel } from "../generators/rr-sample.js";
 import { generateInstanceAuditReport } from "../generators/audit.js";
-import { logError, logInfo, logSuccess } from "../utils/logger.js";
+import { logError, logInfo, logSuccess, logWarn } from "../utils/logger.js";
 
 // Usage examples:
 //   npm run report -- rr-full   pampers-en-us
@@ -59,8 +59,26 @@ try {
   if (mode === "audit") {
     report = await generateInstanceAuditReport({ instanceNames });
   } else if (mode === "rr-sample") {
-    // Sample report is per-instance; collect all results
-    const results = await Promise.all(instanceNames.map((n) => generateSampleReportExcel(n)));
+    // Sample report is per-instance; keep valid brands and skip the broken ones.
+    const settled = await Promise.allSettled(instanceNames.map((n) => generateSampleReportExcel(n)));
+    const results: Awaited<ReturnType<typeof generateSampleReportExcel>>[] = [];
+
+    for (let index = 0; index < settled.length; index += 1) {
+      const item = settled[index];
+      if (item.status === "fulfilled") {
+        results.push(item.value);
+      } else {
+        await logWarn(`report-cli: skipping invalid instance "${instanceNames[index]}"`, {
+          instanceName: instanceNames[index],
+          error: item.reason instanceof Error ? item.reason.message : String(item.reason),
+        });
+      }
+    }
+
+    if (results.length === 0) {
+      throw new Error(`No valid Bazaarvoice instances were available for sample RR report generation. Tried: ${instanceNames.join(", ") || "(none)"}`);
+    }
+
     report = results.length === 1 ? results[0] : results;
   } else {
     report = await generateRrKeyMetricsTemplateReport(instanceNames);

@@ -9,10 +9,42 @@ const DEFAULT_REPORTS_DIR = path.resolve(process.cwd(), "reports");
 
 type RrKeyMetricsTemplateReport = {
   instanceNames: string[];
+  skippedInstanceNames?: string[];
   outputPath: string;
   totalProducts: number;
   generatedAt: string;
 };
+
+export async function resolveValidInstanceNames(
+  instanceNames: string[],
+  probe: (instanceName: string) => Promise<unknown>,
+  onSkip?: (instanceName: string, error: unknown) => Promise<void> | void,
+): Promise<string[]> {
+  const settled = await Promise.allSettled(
+    instanceNames.map(async (instanceName) => {
+      await probe(instanceName);
+      return instanceName;
+    }),
+  );
+
+  const validNames: string[] = [];
+
+  for (let index = 0; index < settled.length; index += 1) {
+    const item = settled[index];
+    const instanceName = instanceNames[index];
+
+    if (item.status === "fulfilled") {
+      validNames.push(instanceName);
+      continue;
+    }
+
+    if (onSkip) {
+      await onSkip(instanceName, item.reason);
+    }
+  }
+
+  return validNames;
+}
 
 function formatRunDate(date: Date): string {
   const month = date.toLocaleString("en-US", { month: "short", timeZone: "UTC" });
@@ -120,10 +152,28 @@ export async function generateRrKeyMetricsTemplateReport(
   const instanceNames = Array.isArray(instanceInput) ? [...new Set(instanceInput)] : [instanceInput];
   const generatedAt   = new Date().toISOString();
 
+  const skippedInstanceNames: string[] = [];
+  const validInstanceNames = await resolveValidInstanceNames(
+    instanceNames,
+    async (instanceName) => {
+      await listProducts(instanceName, { limit: 1, offset: 0 });
+    },
+    async (instanceName, error) => {
+      skippedInstanceNames.push(instanceName);
+      console.warn(`Skipping invalid RR instance: ${instanceName} (${error instanceof Error ? error.message : String(error)})`);
+    },
+  );
+
+  if (validInstanceNames.length === 0) {
+    throw new Error(
+      `No valid Bazaarvoice instances were available for RR report generation. Skipped: ${instanceNames.join(", ") || "(none)"}`,
+    );
+  }
+
   const workbook = xlsx.utils.book_new();
   let totalProducts = 0;
 
-  for (const instanceName of instanceNames) {
+  for (const instanceName of validInstanceNames) {
     const products = await listAllProducts(instanceName);
     totalProducts += products.length;
     const rows = buildSheetRows(instanceName, generatedAt, products);
@@ -135,12 +185,13 @@ export async function generateRrKeyMetricsTemplateReport(
 
   await mkdir(outputDir, { recursive: true });
 
-  const label      = instanceNames.length === 1 ? instanceNames[0] : `multi-instance_${instanceNames.length}instances`;
+  const label      = validInstanceNames.length === 1 ? validInstanceNames[0] : `multi-instance_${validInstanceNames.length}instances`;
   const outputPath = path.join(outputDir, `${label}_R&R_key_metrics_${formatTimestampForFilename(new Date(generatedAt))}.xlsx`);
   xlsx.writeFile(workbook, outputPath);
 
   return {
-    instanceNames,
+    instanceNames: validInstanceNames,
+    skippedInstanceNames: skippedInstanceNames.length ? skippedInstanceNames : undefined,
     outputPath,
     totalProducts,
     generatedAt,
